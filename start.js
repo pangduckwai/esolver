@@ -1,4 +1,4 @@
-import { solve } from './solve.js';
+import { _solve, solve } from './solve.js';
 
 (() => {
 	if (process.argv.length !== 6 || process.argv[2] === '--help'|| process.argv[2] === '-h') {
@@ -18,7 +18,6 @@ import { solve } from './solve.js';
 	const od = +process.argv[4];
 	const fn = process.argv[5];
 
-	console.log(fm, to, od);
-	console.log(fn);
-	solve(od, {fm, to}, eval(fn), null, -1);
+	// solve(od, {fm, to}, eval(fn));
+	_solve(od, {fm, to}, eval(fn), -1);
 })();
