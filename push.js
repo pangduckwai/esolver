@@ -25,5 +25,5 @@ const a = 2916;
 	const to = +process.argv[7];
 
 	solve(2, {fm, to}, ((t) => t*t + x1*t + x2*t + x1*x2 - ((a*(x2 - x1))/(y2 - y1))), hdr);
-	solve(2, {fm, to}, ((t) => t*t - y2*t - y1*t + y1*y2 - ((a*(y2 - y1))/(x2 - x1))));
+	solve(2, {fm, to}, ((t) => t*t - y2*t - y1*t + y1*y2 - ((a*(y2 - y1))/(x2 - x1))), hdr);
 })();

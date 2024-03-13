@@ -55,7 +55,7 @@ export const report = (hdrs, solns) => {
 	console.log(gln);
 };
 
-const signof = (val) => (val < 0) ? -1 : (val > 0) ? 1 : 0;
+const signOf = (val) => (val < 0) ? -1 : (val > 0) ? 1 : 0;
 
 export const gradient = (p1, p2) => {
 	if (!p1 || (p1.x === undefined) || (p1.y === undefined) || !p2 || (p2.x === undefined) || (p2.y === undefined)) return undefined;
@@ -72,24 +72,26 @@ export const gradient = (p1, p2) => {
 };
 
 export const _solve = (order, range, func, verbose) => {
-	let idx = 0; // index of the # of the 1st derivative change sign
 	let sign0; // sign of the 0th derivative (the value) of the previous run
 	let sign1; // sign of the 1st derivative of the previous run
 	let x0, y0; // the point of the previous run
+	let idx = 0; // index of the # of the 1st derivative change sign
+	let cnt = 0; // number of solutions found
 
 	const soln = [];
 	for (let i = 0; i < order; i ++) {
 		soln.push(null);
 	}
 
-	for (let x = (range.from || range.fm); x <= range.to; x ++) {
+	for (let x = range.fm; x <= range.to; x += 0.5) {
 		const y = func(x);
-		const s0 = signof(y); // sign of the current value
-		const s1 = ((x0 !== undefined) && (y0 !== undefined)) ? signof(gradient({x: x0, y: y0}, { x, y })) : undefined; // sign of the current gradient
+		const s0 = signOf(y); // sign of the current value
+		const s1 = ((x0 !== undefined) && (y0 !== undefined)) ? signOf(gradient({x: x0, y: y0}, { x, y })) : undefined; // sign of the current gradient
 
-		if ((sign1 !== undefined) && (s1 !== undefined) && ((sign1 !== 0) && (sign1 !== s1))) idx ++; // slope sign changed, proceed to next stage (not counting slope change from zero)
+		if ((sign1 !== undefined) && (s1 !== undefined) && ((s1 !== 0) && (sign1 !== s1))) idx ++; // slope sign changed, proceed to next stage (not counting slope change from zero)
 
 		if ((sign0 !== undefined) && (sign0 !== s0)) { // value sign changed, solution found
+			cnt ++;
 			const ay0 = Math.abs(y0);
 			const ay1 = Math.abs(y);
 			if (ay0 === ay1) {
@@ -99,6 +101,7 @@ export const _solve = (order, range, func, verbose) => {
 			} else {
 				soln[idx] = { x, y };
 			}
+			if (cnt >= (order * 2)) break; // find all solutions, do not need to continue
 		}
 
 		x0 = x;
@@ -106,7 +109,7 @@ export const _solve = (order, range, func, verbose) => {
 		sign0 = s0;
 		sign1 = s1;
 	}
-	if (verbose < 0) console.log('SOLN', JSON.stringify(soln, null, 2));
+	if (verbose < 0) console.log(` - solutions: ${JSON.stringify(soln, null, 2)}`);
 
 	return {
 		expected: order,
@@ -132,16 +135,21 @@ export const solve = (
 		header.splice(2, header.length - 2);
 	}
 
-	if (!order || isNaN(order)) {
+	if ((order === undefined) || isNaN(order)) {
 		const msg = `Invalid order of equation specified: ${JSON.stringify(order)}`;
 		if (verbose <= 0) console.log(msg);
 		return { code: -4, msg };
 	}
 
-	if (!range || (!range.fm && !range.from) || (range.fm && range.from) || !range.to || (!!range.fm && isNaN(range.fm)) || (!!range.from && isNaN(range.from)) || (!!range.to && isNaN(range.to))) {
+	if (!range || (range.to === undefined) ||
+			(range.fm === undefined && range.from === undefined) || (range.fm !== undefined && range.from !== undefined) || // may either provide 'fm' or 'from' but not both
+			(range.fm !== undefined && isNaN(range.fm)) || (range.from !== undefined && isNaN(range.from)) || (range.to !== undefined && isNaN(range.to))) { // values provided must be numeric
 		const msg = `Invalid range specified: ${!!range ? JSON.stringify(range, null, 2) : 'undefined'}`;
 		if (verbose <= 0) console.log(msg);
 		return { code: -3, msg };
+	} else if (range.from !== undefined) {
+		range.fm = range.from;
+		delete range.from;
 	}
 
 	if (!func || (func.length !== 1) || isNaN(func(0))) {
@@ -158,8 +166,6 @@ export const solve = (
 		if (verbose <= 0) console.log(msg);
 		return { code: -1, msg };
 	}
-
-	if (verbose < 0) console.log('3', JSON.stringify(solved, null, 2));
 
 	if (verbose <= 0) report(header, solved.solutions);
 	return {
