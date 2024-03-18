@@ -72,44 +72,57 @@ export const gradient = (p1, p2) => {
 };
 
 export const _solve = (order, range, func, verbose) => {
-	let sign0; // sign of the 0th derivative (the value) of the previous run
-	let sign1; // sign of the 1st derivative of the previous run
-	let x0, y0; // the point of the previous run
-	let idx = 0; // index of the # of the 1st derivative change sign
-	let cnt = 0; // number of solutions found
-
 	const soln = [];
 	for (let i = 0; i < order; i ++) {
 		soln.push(null);
 	}
 
-	for (let x = range.fm; x <= range.to; x += 0.5) {
-		const y = func(x);
-		const s0 = signOf(y); // sign of the current value
-		const s1 = ((x0 !== undefined) && (y0 !== undefined)) ? signOf(gradient({x: x0, y: y0}, { x, y })) : undefined; // sign of the current gradient
+	let cnt; // number of solutions found
+	let retry = 0; // number of retry
+	let step = 2.0; // step of each iteration
+	do {
+		let sign0; // sign of the 0th derivative (the value) of the previous run
+		let sign1; // sign of the 1st derivative of the previous run
+		let x0, y0; // the point of the previous run
+		let idx = 0; // index of the # of the 1st derivative change sign
+		cnt = 0;
+		step /= 2;
+		retry ++;
+		for (let x = range.fm; x <= range.to; x += step) {
+			const y = func(x);
+			const s0 = signOf(y); // sign of the current value
+			const s1 = ((x0 !== undefined) && (y0 !== undefined)) ? signOf(gradient({x: x0, y: y0}, { x, y })) : undefined; // sign of the current gradient
 
-		if ((sign1 !== undefined) && (s1 !== undefined) && ((s1 !== 0) && (sign1 !== s1))) idx ++; // slope sign changed, proceed to next stage (not counting slope change from zero)
+			if ((sign1 !== undefined) && (s1 !== undefined) && ((s1 !== 0) && (sign1 !== s1))) idx ++; // slope sign changed, proceed to next stage (not counting slope change from zero)
 
-		if ((sign0 !== undefined) && (sign0 !== s0)) { // value sign changed, solution found
-			cnt ++;
-			const ay0 = Math.abs(y0);
-			const ay1 = Math.abs(y);
-			if (ay0 === ay1) {
-				soln[idx] = { x: (x0 + x)/2, y: 0 };
-			} else if (ay0 < ay1 ) {
-				soln[idx] = { x: x0, y: y0 };
-			} else {
-				soln[idx] = { x, y };
+			if ((sign0 !== undefined) && (sign0 !== s0)) { // value sign changed, solution found
+				cnt ++;
+				const ay0 = Math.abs(y0);
+				const ay1 = Math.abs(y);
+				if (ay0 === ay1) {
+					soln[idx] = { x: (x0 + x)/2, y: 0 };
+				} else if (ay0 < ay1 ) {
+					soln[idx] = { x: x0, y: y0 };
+				} else {
+					soln[idx] = { x, y };
+				}
+				if (cnt >= (order * 2)) break; // found all solutions, do not need to continue
 			}
-			if (cnt >= (order * 2)) break; // find all solutions, do not need to continue
-		}
 
-		x0 = x;
-		y0 = y;
-		sign0 = s0;
-		sign1 = s1;
+			x0 = x;
+			y0 = y;
+			sign0 = s0;
+			sign1 = s1;
+		}
+		if (verbose < 0 && cnt < (order * 2)) console.log(` - retry (${retry}/${step}): ${JSON.stringify(soln, null, 2)}`);
+	} while (cnt < (order * 2) && retry < 5);
+
+	if (verbose < 0) {
+		if (cnt >= (order * 2))
+			console.log(` - solutions (${step}): ${JSON.stringify(soln, null, 2)}`);
+		else
+			console.log(` - expecting (${order}/${step}) solutions, got: ${JSON.stringify(soln, null, 2)}`);
 	}
-	if (verbose < 0) console.log(` - solutions: ${JSON.stringify(soln, null, 2)}`);
 
 	return {
 		expected: order,
