@@ -28,7 +28,7 @@ import { parseArgs } from './utils.js';
 	npm start --- --order 3 --func "x => x*x*x - 10*x*x - 500*x - 3000"
 	npm start --- --order 3 --func "x => x*x*x + 20*x*x - 500*x - 6000"
 	npm start --- --order 3 --func "x => x*x*x - 700*x - 6000"
-	npm start --- --order 3 -func "x => x*x*x + 19*x*x - 508*x - 5700" --step 0.001
+	npm start --- --order 3 --func "x => x*x*x + 19*x*x - 508*x - 5700" --step 0.001
 	npm start --- --order 2 --func "(t) => { let x1=0,y1=3,x2=100,y2=30; return t*t + x1*t + x2*t + x1*x2 - ((2916*(x2 - x1))/(y2 - y1)); }" --headers "h,f(h)"
 	npm start --- --order 2 --func "(t) => { let x1=0,y1=3,x2=100,y2=30; return t*t - y2*t - y1*t + y1*y2 - ((2916*(y2 - y1))/(x2 - x1)); }" --headers "k,f(k)"
  */
