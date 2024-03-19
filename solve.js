@@ -1,9 +1,8 @@
-
-const padl = (val, len, pad) => {
-	if (!pad || ('' + pad).length <= 0) pad = ' ';
-	if (!len || len <= 0 || ('' + val).length >= len) return val;
-	return (pad.repeat(len) + val).slice(-1 * len);
-};
+import {
+	gradient,
+	padl,
+	signOf,
+} from './utils.js';
 
 export const report = (hdrs, solns) => {
 	if (solns.length <= 0) {
@@ -55,26 +54,9 @@ export const report = (hdrs, solns) => {
 	console.log(gln);
 };
 
-const signOf = (val) => (val < 0) ? -1 : (val > 0) ? 1 : 0;
-
-export const gradient = (p1, p2) => {
-	if (!p1 || (p1.x === undefined) || (p1.y === undefined) || !p2 || (p2.x === undefined) || (p2.y === undefined)) return undefined;
-	if (p1.x === p2.x) {
-		if (p2.y > p1.y) {
-			return Number.MAX_SAFE_INTEGER;
-		} else if (p1.y > p2.y) {
-			return Number.MIN_SAFE_INTEGER;
-		} else {
-			return NaN;
-		}
-	}
-	return (p2.y - p1.y) / (p2.x - p1.x);
-};
-
-export const _solve = (expected, range, func, verbose) => {
+export const _solve = (expected, range, step, func, verbose) => {
 	const solutions = [];
 	let retry = 0; // number of retry
-	let step = 2.0; // step of each iteration
 	let count // number of solution found
 	do {
 		solutions.splice(0, solutions.length);
@@ -83,13 +65,12 @@ export const _solve = (expected, range, func, verbose) => {
 		}
 
 		count = 0;
-		step /= 2;
 		retry ++;
 		let sign0; // sign of the 0th derivative (the value) of the previous run
 		let sign1; // sign of the 1st derivative of the previous run
 		let x0, y0; // the point of the previous run
 		let idx = 0; // index of the # of the 1st derivative change sign
-		for (let x = range.fm; x <= range.to; x += step) {
+		for (let x = range.from; x <= range.to; x += step) {
 			const y = func(x);
 			const s0 = signOf(y); // sign of the current value
 			const s1 = ((x0 !== undefined) && (y0 !== undefined)) ? signOf(gradient({x: x0, y: y0}, { x, y })) : undefined; // sign of the current gradient
@@ -114,14 +95,17 @@ export const _solve = (expected, range, func, verbose) => {
 			sign0 = s0;
 			if (s1 !== 0) sign1 = s1;
 		}
-		if (verbose < 0 && count < expected) console.log(` - retry (${retry}/${step}): ${JSON.stringify(solutions, null, 2)}`);
+		if (count < expected) {
+			if (verbose < 0) console.log(`Retry (${retry}/${step}): ${JSON.stringify(solutions, null, 2)}`);
+			if (retry < 5) step /= 2;
+		}
 	} while (count < expected && retry < 5);
 
 	if (verbose < 0) {
 		if (count >= expected)
-			console.log(` - solutions (${step}): ${JSON.stringify(solutions, null, 2)}`);
+			console.log(`Solutions (${step}): ${JSON.stringify(solutions, null, 2)}`);
 		else
-			console.log(` - expecting (${expected}/${step}) solutions, got: ${JSON.stringify(solutions, null, 2)}`);
+			console.log(`Expecting (${expected}/${step}) solutions, got: ${JSON.stringify(solutions, null, 2)}`);
 	}
 
 	return {
@@ -136,6 +120,7 @@ export const _solve = (expected, range, func, verbose) => {
 export const solve = (
 	order, // order of the equation to be solved
 	range, // range of x values to use when solving the equation
+	step, // initial amount of x to increment of each iteration
 	func, // function representing the equation to be solved
 	header, // head to display
 	verbose, // -1 - debug; 0/null - verbose; 1 - silence
@@ -157,15 +142,14 @@ export const solve = (
 		return { code: -4, msg };
 	}
 
-	if (!range || (range.to === undefined) ||
-			(range.fm === undefined && range.from === undefined) || (range.fm !== undefined && range.from !== undefined) || // may either provide 'fm' or 'from' but not both
-			(range.fm !== undefined && isNaN(range.fm)) || (range.from !== undefined && isNaN(range.from)) || (range.to !== undefined && isNaN(range.to))) { // values provided must be numeric
+	if (!range || (range.to === undefined) || (range.from === undefined) || (range.from !== undefined && isNaN(range.from)) || (range.to !== undefined && isNaN(range.to))) {
 		const msg = `Invalid range specified: ${!!range ? JSON.stringify(range, null, 2) : 'undefined'}`;
 		if (verbose <= 0) console.log(msg);
 		return { code: -3, msg };
-	} else if (range.from !== undefined) {
-		range.fm = range.from;
-		delete range.from;
+	}
+
+	if ((step === undefined) || isNaN(step)) {
+		step = 1.0;
 	}
 
 	if (!func || (func.length !== 1) || isNaN(func(0))) {
@@ -175,8 +159,8 @@ export const solve = (
 	}
 
 	// Solve
-	if (verbose <= 0) console.log(`Solving\n\t${func.toString()}\nwith range of x from ${(range.from || range.fm)} to ${range.to}:`);
-	const solved = _solve(order, range, func, verbose);
+	const solved = _solve(order, range, step, func, verbose);
+	if (verbose <= 0) console.log(`Solving\n\t${func.toString()}\n  with range of x from ${range.from} to ${range.to} (increment ${solved.step}):`);
 	if (!solved || !solved.expected || !solved.solutions || !Array.isArray(solved.solutions)) {
 		const msg = `Error: running equation solver failed: ${!!solved ? JSON.stringify(solved, null, 2) : 'undefined'}`;
 		if (verbose <= 0) console.log(msg);

@@ -5,6 +5,7 @@
   "main": "start.js",
   "type": "module",
   "scripts": {
+    "test": "node test.js",
     "start": "node start.js",
     "push": "node push.js"
   },
