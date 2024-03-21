@@ -131,7 +131,7 @@ dist
 
 # Misc.
 temp.*
-test.*
+test.txt
 *.test
 *.temp
 *.tmp

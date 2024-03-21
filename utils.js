@@ -43,10 +43,11 @@ const toType = (org, str) => {
 /*
 input = {
 	[key]: {
-		D (default) : -1000,
-		R (required): false, // (default is false)
-		M (message) : "start of range of x value used",
-		E (enum)    : "debug|verbose|silence",
+		D (Default) : -1000,
+		R (Required): false, // required field, false if not provided
+		U (mUltiple): false, // allow specifying multiple times in the command line, false if not provided, if also a required field, do not add default(D) to the array
+		M (Message) : "start of range of x value used",
+		E (Enum)    : "debug|verbose|silence",
 	},
 }
 */
@@ -61,42 +62,60 @@ const usage = (input, message) => {
 	console.log('Usage: npm start --- [{option} {value}]');
 	console.log('options:');
 	for (const key of keys) {
-		console.log(`  --${(key + pad).substring(0, mlen)}  ${input[key].M} (${input[key].E ? `allowed values: ${input[key].E.split('|')}` : (input[key].R ? 'required' : `default: ${input[key].D}`)})`);
+		console.log(`  --${(key + pad).substring(0, mlen)}  ${input[key].M} (${input[key].E ? `values: ${input[key].E.split('|')}` : (input[key].R ? 'required' : `default: ${input[key].D}`)})`);
 	}
 	if (message) console.log(`\nError: ${message}`);
 	console.log();
-	process.exit(1);
+	return undefined;
 };
 
 export const parseArgs = (input) => {
 	const keys = Object.keys(input);
 	const config = {};
 	for (const key of keys) {
-		if (key === "-h" || key === "--help") usage(input);
-		config[key] = input[key].R ? null : input[key].D;
+		if (key === "-h" || key === "--help") return usage(input);
+		config[key] = input[key].U ? [] : null; // do not add default(D) just yet
 	}
 
 	let idx = 2;
+	let key;
 	while (idx < process.argv.length) {
-		const argv = process.argv[idx];
-		const key = (argv.startsWith('--') ? argv.substring(2) : (argv.startsWith('-') ? argv.substring(1) : undefined));
-		if (!key || !keys.includes(key)) {
-			usage(input);
+		const optn = process.argv[idx];
+		if (optn.startsWith('--')) {
+			idx ++;
+			key = optn.substring(2);
 		}
-		config[key] = toType(input[key].D, process.argv[++idx]);
+		if (!key || !keys.includes(key)) return usage(input);
+		if (input[key].U) {
+			if (Array.isArray(input[key].D) && input[key].D.length > 0) {
+				config[key].push(toType(input[key].D[0], process.argv[idx])); // if default(D) given is an array, use the first element to detect the type
+			} else {
+				config[key].push(toType(input[key].D, process.argv[idx]));
+			}
+		} else if (config[key] !== null) {
+			return usage(input, `Argument '${key}' already specified`);
+		} else {
+			config[key] = toType(input[key].D, process.argv[idx]);
+		}
 		idx ++;
 	}
 
-	for (const obj of Object.entries(config)) {
-		if (obj.length != 2) {
-			usage(input, `Invalid argument '${obj}'`);
+	for (const key of Object.keys(config)) {
+		if ((config[key] === null) || (Array.isArray(config[key]) && config[key].length <= 0)) {
+			// required argument missing
+			if (input[key].R) return usage(input, `Argument '${key}' required`);
+
+			// otherwise use default value
+			if (Array.isArray(config[key]) && !Array.isArray(input[key].D)) {
+				config[key].push(input[key].D);
+			} else {
+				config[key] = input[key].D;
+			}
 		}
-		if (obj[1] === null) {
-			usage(input, `Argument '${obj[0]}' required`);
-		}
-		if (input[obj[0]].E) {
-			if (!input[obj[0]].E.split('|').includes(obj[1])) {
-				usage(input, `Invalid value '${obj[1]}' of argument '${obj[0]}'`);
+
+		if (input[key].E) {
+			if (!input[key].E.split('|').includes(config[key])) {
+				return usage(input, `Invalid value '${config[key]}' of argument '${key}'`);
 			}
 		}
 	}
